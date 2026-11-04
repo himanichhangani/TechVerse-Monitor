@@ -1,11 +1,11 @@
-import time
+iport time
 from collections import defaultdict
 from datetime import datetime
 import requests
 
 # Config
-URL = "http://127.0.0.1:8000/api/v1/info/top20/upload"  # TechVerse-Network local server
-INTERVAL = 3  # seconds between polls
+URL = "api end point"  # TechVerse-Network local server
+INTERVAL = 3  # seconds between poll
 
 session = requests.Session()
 

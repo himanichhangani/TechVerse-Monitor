@@ -2,20 +2,20 @@
 TechVerse-Network -- local fake bandwidth API server for TechVerse-Monitor testing.
 
 Serves the endpoint TechVerse-Monitor polls:
-    GET /api/v1/info/top20/upload  ->  {"data": [{"Username": "...", "Speed": "12.34Mbps"}, ...]}
+    GET /api/..../..../... ->  {"data": [{"Username": "...", "Speed": "12.34Mbps"}, ...]}
 
 Run:
     python techverse_network_server.py
 
 Then in techverse_monitor.py (or your own script), set:
-    URL = "http://127.0.0.1:8000/api/v1/info/top20/upload"
-"""
+    URL = ""
+ """
 
 import json
 import random
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-HOST = "127.0.0.1"
+HOST = ""
 PORT = 8000
 POOL_SIZE = 200
 TOP_N = 20
@@ -87,7 +87,7 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     print("=" * 70)
     print("TechVerse-Network -- Simulated Bandwidth API")
-    print(f"Serving  : http://{HOST}:{PORT}/api/v1/info/top20/upload")
+    print(f"Serving  : http://{HOST}:{PORT}/api/.../.../...")
     print(f"User pool: {POOL_SIZE} (top {TOP_N} returned per request)")
     print("Point TechVerse-Monitor's URL here. Press CTRL+C to stop.")
     print("=" * 70)
