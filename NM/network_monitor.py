@@ -1,4 +1,4 @@
-iport time
+import time
 from collections import defaultdict
 from datetime import datetime
 import requests
