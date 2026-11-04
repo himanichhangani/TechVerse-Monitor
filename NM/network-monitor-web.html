@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network Monitor</title>
+<style>
+  :root{
+    --bg:#FFFFFF;
+    --panel:#F7F8FA;
+    --panel2:#F0F2F5;
+    --border:#E3E6EA;
+    --text:#1A1F26;
+    --muted:#6B7280;
+    --good:#0F9E7A;
+    --warn:#C97A1E;
+    --crit:#D14343;
+    --mono: 'JetBrains Mono','IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--mono);
+    padding:24px;
+    min-height:100vh;
+  }
+  .wrap{max-width:1100px;margin:0 auto;}
+
+  .topbar{
+    display:flex;justify-content:space-between;align-items:center;
+    border-bottom:1px solid var(--border);
+    padding-bottom:14px;margin-bottom:20px;
+    flex-wrap:wrap;gap:14px 24px;
+  }
+  .brand{display:flex;align-items:center;gap:12px;min-width:260px;}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex-shrink:0;}
+  .dot.on{background:var(--good);box-shadow:0 0 6px var(--good);animation:pulse 1.4s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  .brand h1{font-size:16px;font-weight:600;margin:0;letter-spacing:.5px;}
+  .brand .sub{font-size:11px;color:var(--muted);letter-spacing:1px;}
+  .status-block{display:flex;flex-direction:column;align-items:flex-end;gap:5px;margin-left:auto;}
+  .status{font-size:11px;padding:4px 10px;border:1px solid var(--border);letter-spacing:1px;white-space:nowrap;}
+  .status.running{color:var(--good);border-color:var(--good);}
+  .status.stopped{color:var(--warn);border-color:var(--warn);}
+  .clock{font-size:12px;color:var(--muted);white-space:nowrap;}
+
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px;}
+  button{
+    font-family:var(--mono);font-size:12px;letter-spacing:.5px;
+    background:var(--panel);color:var(--text);border:1px solid var(--border);
+    padding:9px 16px;cursor:pointer;transition:.15s;
+  }
+  button:hover{border-color:var(--good);color:var(--good);}
+  button.primary{border-color:var(--good);color:var(--good);}
+  button.stop{border-color:var(--crit);color:var(--crit);}
+  button:disabled{opacity:.35;cursor:not-allowed;}
+  .interval-note{font-size:11px;color:var(--muted);}
+
+  .stats{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+    gap:1px;background:var(--border);border:1px solid var(--border);
+    margin-bottom:22px;
+  }
+  .stat{background:var(--panel);padding:14px 16px;}
+  .stat .label{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;}
+  .stat .val{font-size:22px;font-weight:600;margin-top:4px;}
+  .stat .val.good{color:var(--good);}
+
+  h2.section{
+    font-size:12px;letter-spacing:1.5px;color:var(--muted);
+    text-transform:uppercase;margin:26px 0 10px;
+    border-left:2px solid var(--good);padding-left:8px;
+  }
+
+  table{width:100%;border-collapse:collapse;font-size:12px;}
+  thead th{
+    text-align:left;font-size:10px;letter-spacing:1px;text-transform:uppercase;
+    color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--border);
+  }
+  tbody td{padding:7px 10px;border-bottom:1px solid var(--border);}
+  tbody tr:hover{background:var(--panel);}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+  .bar-bg{background:var(--panel2);height:5px;width:100%;margin-top:4px;}
+  .bar-fill{height:100%;background:var(--good);}
+  .bar-fill.warn{background:var(--warn);}
+  .bar-fill.crit{background:var(--crit);}
+  .rank{color:var(--muted);}
+
+  .empty{
+    color:var(--muted);font-size:12px;padding:24px;text-align:center;
+    border:1px dashed var(--border);
+  }
+
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="dot" id="statusDot"></span>
+      <div>
+        <h1>NETWORK-MONITOR</h1>
+        <div class="sub">NETWORK MONITOR FEED &middot; POOL: 2000 USERS</div>
+      </div>
+    </div>
+    <div class="status-block">
+      <span class="status stopped" id="statusBadge">STOPPED</span>
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="primary" id="startBtn">&#9654; START MONITOR</button>
+    <button class="stop" id="stopBtn" disabled>&#9632; STOP MONITOR</button>
+    <button id="resetBtn">&#8635; RESET</button>
+  
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Samples</div><div class="val" id="statSamples">0</div></div>
+    <div class="stat"><div class="label">Runtime</div><div class="val" id="statRuntime">00:00:00</div></div>
+    <div class="stat"><div class="label">Last Poll</div><div class="val good" id="statLastPoll">--:--:--</div></div>
+  </div>
+
+  <h2 class="section">Live Top 20 &middot; Current Poll</h2>
+  <table>
+    <thead><tr><th>#</th><th>Username</th><th class="num">Speed (Mbps)</th><th style="width:160px;">Load</th></tr></thead>
+    <tbody id="liveBody">
+      <tr><td colspan="4" class="empty">Not started. Hit START MONITOR to begin polling.</td></tr>
+    </tbody>
+  </table>
+
+</div>
+
+<script>
+const INTERVAL = 3000;
+const TOP_N = 20;
+
+const PREFIXES = ["LL","ILL-CUST"];
+const SURNAMES = ["Sharma","Verma","Rathore","Jain","Meena","Choudhary","Gupta","Singh",
+  "Yadav","Agarwal","Kumawat","Bansal","Pareek","Soni","Mishra","Chauhan","Tiwari","Nair",
+  "Joshi","Kapoor","Bhatt","Saxena","Rawat","Panwar","Solanki","Purohit","Vyas","Goyal"];
+const USER_POOL = [];
+const usedIds = new Set();
+for(let i=0;i<2000;i++){
+  const prefix = PREFIXES[i % PREFIXES.length];
+  let id;
+  do{ id = 1000 + Math.floor(Math.random()*9000); } while(usedIds.has(id));
+  usedIds.add(id);
+  const sur = SURNAMES[i % SURNAMES.length];
+  USER_POOL.push(prefix === "LL" ? `LL-${id}-${sur}` : `ILL-CUST-${id}`);
+}
+const baseline = {};
+USER_POOL.forEach(u => baseline[u] = 3 + Math.random() * 95);
+
+let users = {};
+let samples = 0;
+let running = false;
+let timer = null;
+let startTime = null;
+let runtimeTimer = null;
+
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,'0');
+
+function fmtTime(d){
+  return pad(d.getHours())+":"+pad(d.getMinutes())+":"+pad(d.getSeconds());
+}
+function fmtRuntime(ms){
+  const s = Math.floor(ms/1000);
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  return pad(h)+":"+pad(m)+":"+pad(sec);
+}
+
+function tickClock(){
+  $('clock').textContent = fmtTime(new Date());
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+function generatePoll(){
+  const onlineCount = 60 + Math.floor(Math.random()*100);
+  const shuffled = [...USER_POOL].sort(()=>Math.random()-0.5).slice(0, onlineCount);
+  const scored = shuffled.map(u => {
+    const jitter = (Math.random()-0.5) * 18;
+    let speed = Math.max(0.5, baseline[u] + jitter + (Math.random()<0.04 ? Math.random()*60 : 0));
+    return { username: u, speed: Math.round(speed*100)/100 };
+  });
+  return scored.sort((a,b)=>b.speed-a.speed).slice(0, TOP_N);
+}
+
+function renderLive(rows){
+  const maxSpeed = Math.max(...rows.map(r=>r.speed), 1);
+  $('liveBody').innerHTML = rows.map((r,i)=>{
+    const pct = Math.min(100, (r.speed/maxSpeed)*100);
+    const cls = r.speed > 80 ? 'crit' : r.speed > 45 ? 'warn' : '';
+    return `<tr>
+      <td class="rank">${i+1}</td>
+      <td>${r.username}</td>
+      <td class="num">${r.speed.toFixed(2)}</td>
+      <td><div class="bar-bg"><div class="bar-fill ${cls}" style="width:${pct}%;"></div></div></td>
+    </tr>`;
+  }).join('');
+}
+
+function poll(){
+  const rows = generatePoll();
+  samples++;
+  const now = new Date();
+  const nowStr = fmtTime(now);
+  rows.forEach(r=>{
+    if(!users[r.username]) users[r.username] = {count:0,max:0,total:0,last_seen:""};
+    const info = users[r.username];
+    info.count++;
+    info.total += r.speed;
+    info.last_seen = nowStr;
+    info.max = Math.max(info.max, r.speed);
+  });
+  renderLive(rows);
+  $('statSamples').textContent = samples;
+  $('statLastPoll').textContent = nowStr;
+}
+
+function start(){
+  if(running) return;
+  running = true;
+  startTime = new Date();
+  $('startBtn').disabled = true;
+  $('stopBtn').disabled = false;
+  $('statusBadge').textContent = 'RUNNING';
+  $('statusBadge').className = 'status running';
+  $('statusDot').className = 'dot on';
+  poll();
+  timer = setInterval(poll, INTERVAL);
+  runtimeTimer = setInterval(()=>{
+    $('statRuntime').textContent = fmtRuntime(new Date() - startTime);
+  }, 1000);
+}
+
+function stop(){
+  if(!running) return;
+  running = false;
+  clearInterval(timer);
+  clearInterval(runtimeTimer);
+  $('startBtn').disabled = false;
+  $('stopBtn').disabled = true;
+  $('statusBadge').textContent = 'STOPPED';
+  $('statusBadge').className = 'status stopped';
+  $('statusDot').className = 'dot';
+}
+
+function reset(){
+  clearInterval(timer);
+  clearInterval(runtimeTimer);
+  running = false;
+  users = {};
+  samples = 0;
+  startTime = null;
+  $('startBtn').disabled = false;
+  $('stopBtn').disabled = true;
+  $('statusBadge').textContent = 'STOPPED';
+  $('statusBadge').className = 'status stopped';
+  $('statusDot').className = 'dot';
+  $('statSamples').textContent = '0';
+  $('statRuntime').textContent = '00:00:00';
+  $('statLastPoll').textContent = '--:--:--';
+  $('liveBody').innerHTML = '<tr><td colspan="4" class="empty">Not started. Hit START MONITOR to begin polling.</td></tr>';
+}
+
+$('startBtn').addEventListener('click', start);
+$('stopBtn').addEventListener('click', stop);
+$('resetBtn').addEventListener('click', reset);
+</script>
+</body>
+</html>
